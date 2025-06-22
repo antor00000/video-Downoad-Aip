@@ -7,40 +7,35 @@ CORS(app)
 
 @app.route('/api/download', methods=['POST'])
 def download():
-    data = request.get_json()
-    url = data.get('url')
-
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'forceurl': True,
-        'forcejson': True,
-        'noplaylist': True
-    }
-
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            formats = info.get('formats', [])
-            download_links = [
-                {
-                    "format": f"{f.get('format_note', 'Unknown')} - {f.get('ext')}",
-                    "url": f.get("url"),
-                    "filesize": f.get("filesize", 0)
-                }
-                for f in formats if f.get("url")
-            ]
-            return jsonify({
-                "title": info.get("title"),
-                "thumbnail": info.get("thumbnail"),
-                "links": download_links
-            })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        data = request.get_json()
+        video_url = data['url']
 
-@app.route('/')
-def home():
-    return "✅ Video Download API is Live!"
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'format': 'best',
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=False)
+
+        formats = []
+        for f in info.get('formats', []):
+            if f.get('url') and f.get('ext') == 'mp4' and f.get('acodec') != 'none':
+                formats.append({
+                    'format': f"{f.get('format_note', 'unknown')} - {f.get('height')}p",
+                    'url': f['url']
+                })
+
+        return jsonify({
+            'title': info.get('title'),
+            'thumbnail': info.get('thumbnail'),
+            'links': formats[:5]
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=10000)
+    app.run(host='0.0.0.0', port=5000)
